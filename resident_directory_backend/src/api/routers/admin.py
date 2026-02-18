@@ -520,7 +520,12 @@ def review_update_request(
             VALUES (CAST(:crid AS uuid), CAST(:admin_id AS uuid), CAST(:decision AS approval_decision), :note)
             """
         ),
-        {"crid": request_id, "admin_id": admin["id"], "decision": "APPROVE" if decision == "approved" else "REJECT", "note": payload.note},
+        {
+            "crid": request_id,
+            "admin_id": admin["id"],
+            "decision": "APPROVE" if decision == "approved" else "REJECT",
+            "note": payload.note,
+        },
     )
 
     write_audit_log(
@@ -535,6 +540,46 @@ def review_update_request(
         after_data={"status": new_status, "review_note": payload.note},
         metadata={"resident_id": rcr["resident_id"]},
     )
+
+    # Create in-app notification for the requesting resident user (if present).
+    # We notify the user who submitted the request; that user is resident-scoped in this app.
+    recipient_user_id = rcr.get("requested_by_user_id")
+    if recipient_user_id:
+        title = "Change request approved" if decision == "approved" else "Change request rejected"
+        note = (payload.note or "").strip()
+        body = (
+            "Your requested profile updates were approved and applied."
+            if decision == "approved"
+            else "Your requested profile updates were rejected."
+        )
+        if note:
+            body = f"{body} Admin note: {note}"
+
+        db.execute(
+            text(
+                """
+                INSERT INTO app_notification (
+                  user_id, type, title, body, entity_type, entity_id
+                )
+                VALUES (
+                  CAST(:uid AS uuid),
+                  :type,
+                  :title,
+                  :body,
+                  :entity_type,
+                  CAST(:entity_id AS uuid)
+                )
+                """
+            ),
+            {
+                "uid": recipient_user_id,
+                "type": f"change_request.{decision}",
+                "title": title,
+                "body": body,
+                "entity_type": "resident_change_request",
+                "entity_id": request_id,
+            },
+        )
 
     # Return fresh
     updated_rcr = db.execute(

@@ -135,6 +135,30 @@ class CsvImportResult(BaseModel):
     errors: List[CsvImportError] = Field(default_factory=list, description="Row-level errors")
 
 
+class NotificationOut(BaseModel):
+    id: str = Field(..., description="Notification UUID")
+    type: str = Field(..., description="Notification type/category")
+    title: str = Field(..., description="Short title for the notification")
+    body: str = Field(..., description="Notification body text")
+    entityType: Optional[str] = Field(None, description="Optional correlated entity type")
+    entityId: Optional[str] = Field(None, description="Optional correlated entity UUID")
+    isRead: bool = Field(..., description="Whether the notification is read")
+    readAt: Optional[datetime] = Field(None, description="When the notification was marked read")
+    createdAt: datetime = Field(..., description="When the notification was created")
+
+
+class NotificationMarkReadIn(BaseModel):
+    notificationIds: List[str] = Field(
+        ...,
+        description="Notification UUIDs to mark read (must belong to current user).",
+        min_length=1,
+    )
+
+
+class NotificationMarkReadOut(BaseModel):
+    updated: int = Field(..., description="Number of notifications updated")
+
+
 class AuditLogOut(BaseModel):
     id: str = Field(..., description="Audit log UUID")
     at: datetime = Field(..., description="Event time")
