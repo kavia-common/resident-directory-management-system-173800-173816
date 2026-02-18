@@ -67,7 +67,10 @@ class Settings:
             int(os.getenv("ACCESS_TOKEN_EXPIRES_MINUTES", str(60 * 24))),
         )
 
-        object.__setattr__(self, "postgres_url", os.getenv("POSTGRES_URL", ""))
+        # Prefer POSTGRES_URL, but also accept DATABASE_URL (common convention)
+        object.__setattr__(
+            self, "postgres_url", os.getenv("POSTGRES_URL") or os.getenv("DATABASE_URL", "")
+        )
 
         object.__setattr__(self, "postgres_user", os.getenv("POSTGRES_USER"))
         object.__setattr__(self, "postgres_password", os.getenv("POSTGRES_PASSWORD"))
@@ -81,7 +84,15 @@ class Settings:
         )
 
     def database_dsn(self) -> str:
-        """Return a SQLAlchemy DSN string for PostgreSQL."""
+        """Return a SQLAlchemy DSN string for PostgreSQL.
+
+        Accepts either:
+        - POSTGRES_URL / DATABASE_URL (preferred)
+        - or individual POSTGRES_* pieces.
+
+        This avoids psycopg/libpq implicit defaults that can try to authenticate
+        as the OS user (e.g., role 'kavia') when env vars are missing.
+        """
         if self.postgres_url:
             # POSTGRES_URL from DB container is like: postgresql://localhost:5000/myapp
             # SQLAlchemy sync dialect uses postgresql+psycopg://
@@ -100,7 +111,7 @@ class Settings:
             )
 
         raise RuntimeError(
-            "Database is not configured. Set POSTGRES_URL (preferred) or "
+            "Database is not configured. Set POSTGRES_URL / DATABASE_URL (preferred) or "
             "POSTGRES_USER/POSTGRES_PASSWORD/POSTGRES_DB/POSTGRES_PORT."
         )
 
