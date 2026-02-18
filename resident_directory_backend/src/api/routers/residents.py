@@ -13,6 +13,27 @@ from src.api.security import get_current_user
 router = APIRouter(prefix="/residents", tags=["residents"])
 
 
+def _apply_privacy(row, *, is_admin: bool):
+    """
+    Apply privacy rules to a resident row.
+
+    For admins: no redaction, no opt-out filtering.
+    For non-admin users:
+      - Residents with directory_opt_out=true are excluded by query (list) and redacted (get).
+      - phone/email are returned as null when corresponding *_visible=false.
+    """
+    if is_admin:
+        return row
+
+    # Redact fields (note: list endpoint already filters opt-out; get endpoint uses this too)
+    redacted = dict(row)
+    if not row.get("phone_visible", True):
+        redacted["phone"] = None
+    if not row.get("email_visible", True):
+        redacted["email"] = None
+    return redacted
+
+
 def _split_name(full_name: str) -> Tuple[str, str]:
     parts = [p for p in full_name.strip().split(" ") if p]
     if len(parts) < 2:
@@ -47,8 +68,14 @@ def list_residents(
     db: Session = Depends(get_db),
 ) -> List[ResidentOut]:
     """List residents for authenticated users."""
+    is_admin = user.get("role") == "admin"
+
     where = ["r.is_active = true"]
     params = {}
+
+    # Privacy enforcement: only non-admin users are subject to directory opt-out
+    if not is_admin:
+        where.append("r.directory_opt_out = false")
 
     if unit:
         where.append("r.unit ILIKE :unit")
@@ -59,7 +86,9 @@ def list_residents(
         params["q"] = f"%{q}%"
 
     sql = f"""
-        SELECT r.id::text AS id, r.first_name, r.last_name, r.unit, r.phone, r.email::text AS email,
+        SELECT r.id::text AS id, r.first_name, r.last_name, r.unit,
+               r.phone, r.email::text AS email,
+               r.phone_visible, r.email_visible, r.directory_opt_out,
                r.created_at, r.updated_at
         FROM resident r
         WHERE {" AND ".join(where)}
@@ -68,7 +97,10 @@ def list_residents(
     """
 
     rows = db.execute(text(sql), params).mappings().all()
-    return [_row_to_resident(r) for r in rows]
+    out: List[ResidentOut] = []
+    for r in rows:
+        out.append(_row_to_resident(_apply_privacy(r, is_admin=is_admin)))
+    return out
 
 
 @router.get(
@@ -84,10 +116,14 @@ def get_resident(
     db: Session = Depends(get_db),
 ) -> ResidentOut:
     """Get a single resident record."""
+    is_admin = user.get("role") == "admin"
+
     row = db.execute(
         text(
             """
-            SELECT r.id::text AS id, r.first_name, r.last_name, r.unit, r.phone, r.email::text AS email,
+            SELECT r.id::text AS id, r.first_name, r.last_name, r.unit,
+                   r.phone, r.email::text AS email,
+                   r.phone_visible, r.email_visible, r.directory_opt_out,
                    r.created_at, r.updated_at
             FROM resident r
             WHERE r.id = CAST(:rid AS uuid)
@@ -98,4 +134,9 @@ def get_resident(
 
     if not row:
         raise HTTPException(status_code=404, detail="Resident not found")
-    return _row_to_resident(row)
+
+    # Privacy enforcement: if resident opted out, non-admins should not be able to fetch it.
+    if not is_admin and row.get("directory_opt_out", False):
+        raise HTTPException(status_code=404, detail="Resident not found")
+
+    return _row_to_resident(_apply_privacy(row, is_admin=is_admin))

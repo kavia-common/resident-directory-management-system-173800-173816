@@ -27,10 +27,43 @@ class ResidentOut(BaseModel):
     id: str = Field(..., description="Resident UUID")
     name: str = Field(..., description="Full name: 'First Last'")
     unit: str = Field(..., description="Unit identifier (e.g., '1A')")
-    phone: Optional[str] = Field(None, description="Optional phone number")
-    email: Optional[EmailStr] = Field(None, description="Optional email address")
+
+    # Privacy-enforced fields: backend will return null when hidden by resident settings.
+    phone: Optional[str] = Field(None, description="Optional phone number (null when hidden)")
+    email: Optional[EmailStr] = Field(None, description="Optional email address (null when hidden)")
+
     createdAt: Optional[datetime] = Field(None, description="Created timestamp")
     updatedAt: Optional[datetime] = Field(None, description="Updated timestamp")
+
+
+class ResidentPrivacySettings(BaseModel):
+    directoryOptOut: bool = Field(
+        ...,
+        description="If true, the resident is excluded from directory listings for non-admin users.",
+    )
+    phoneVisible: bool = Field(
+        ...,
+        description="If true, phone appears in directory results for non-admin users.",
+    )
+    emailVisible: bool = Field(
+        ...,
+        description="If true, email appears in directory results for non-admin users.",
+    )
+
+
+class ResidentPrivacySettingsPatch(BaseModel):
+    directoryOptOut: Optional[bool] = Field(
+        None,
+        description="If true, the resident is excluded from directory listings for non-admin users.",
+    )
+    phoneVisible: Optional[bool] = Field(
+        None,
+        description="If true, phone appears in directory results for non-admin users.",
+    )
+    emailVisible: Optional[bool] = Field(
+        None,
+        description="If true, email appears in directory results for non-admin users.",
+    )
 
 
 class ResidentCreate(BaseModel):

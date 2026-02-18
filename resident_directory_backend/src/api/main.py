@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.settings import settings
-from src.api.routers import admin, auth, resident_workflow, residents
+from src.api.routers import admin, auth, privacy, resident_workflow, residents
 
 openapi_tags = [
     {"name": "health", "description": "Service health checks."},
@@ -47,4 +47,5 @@ def health_check():
 app.include_router(auth.router)
 app.include_router(residents.router)
 app.include_router(resident_workflow.router)
+app.include_router(privacy.router)
 app.include_router(admin.router)
