@@ -31,6 +31,10 @@ class Settings:
     jwt_algorithm: str = "HS256"
     access_token_expires_minutes: int = 60 * 24  # 24h
 
+    # Password reset
+    password_reset_token_expires_minutes: int = 30
+    email_sending_enabled: bool = False
+
     # Database
     postgres_url: str = ""
     postgres_user: Optional[str] = None
@@ -65,6 +69,17 @@ class Settings:
             self,
             "access_token_expires_minutes",
             int(os.getenv("ACCESS_TOKEN_EXPIRES_MINUTES", str(60 * 24))),
+        )
+
+        object.__setattr__(
+            self,
+            "password_reset_token_expires_minutes",
+            int(os.getenv("PASSWORD_RESET_TOKEN_EXPIRES_MINUTES", "30")),
+        )
+        object.__setattr__(
+            self,
+            "email_sending_enabled",
+            (os.getenv("EMAIL_SENDING_ENABLED", "false").lower() in ("1", "true", "yes", "on")),
         )
 
         # Prefer POSTGRES_URL, but also accept DATABASE_URL (common convention)

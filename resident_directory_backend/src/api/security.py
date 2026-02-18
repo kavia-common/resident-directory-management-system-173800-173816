@@ -6,6 +6,8 @@ from typing import Any, Dict, Optional, Tuple
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
+import hashlib
+import secrets
 from passlib.context import CryptContext
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -29,6 +31,22 @@ def _require_secret() -> str:
 def hash_password(password: str) -> str:
     """Hash a plaintext password using bcrypt."""
     return pwd_context.hash(password)
+
+
+# PUBLIC_INTERFACE
+def generate_reset_token() -> str:
+    """Generate a cryptographically-secure password reset token (URL-safe)."""
+    # 32 bytes => ~43 chars base64url; suitable for single-use reset links.
+    return secrets.token_urlsafe(32)
+
+
+# PUBLIC_INTERFACE
+def hash_reset_token(token: str) -> str:
+    """Hash a password reset token for storage (SHA-256, hex).
+
+    We never store raw reset tokens in the DB.
+    """
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def verify_password(password: str, password_hash: str) -> bool:

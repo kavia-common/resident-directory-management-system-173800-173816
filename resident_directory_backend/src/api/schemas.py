@@ -23,6 +23,31 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=1, description="User password")
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr = Field(..., description="Account email to reset password for")
+
+
+class ForgotPasswordResponse(BaseModel):
+    ok: bool = Field(..., description="Always true (even if email not found) to avoid user enumeration")
+    resetToken: Optional[str] = Field(
+        None,
+        description=(
+            "DEV ONLY: raw reset token when EMAIL_SENDING_ENABLED=false. "
+            "In production this would be delivered via email and not returned."
+        ),
+    )
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(..., min_length=1, description="Password reset token")
+    newPassword: str = Field(..., min_length=8, description="New account password (min length 8)")
+
+
+class ChangePasswordRequest(BaseModel):
+    currentPassword: str = Field(..., min_length=1, description="Current password")
+    newPassword: str = Field(..., min_length=8, description="New password (min length 8)")
+
+
 class ResidentOut(BaseModel):
     id: str = Field(..., description="Resident UUID")
     name: str = Field(..., description="Full name: 'First Last'")
