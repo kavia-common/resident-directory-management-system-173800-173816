@@ -36,6 +36,23 @@ class ResidentOut(BaseModel):
     updatedAt: Optional[datetime] = Field(None, description="Updated timestamp")
 
 
+class FavoriteStatusOut(BaseModel):
+    residentId: str = Field(..., description="Resident UUID")
+    isFavorite: bool = Field(..., description="Whether the resident is favorited by the current user")
+
+
+class FavoriteResidentOut(BaseModel):
+    """A resident entry as returned by the favorites list endpoint."""
+
+    resident: ResidentOut = Field(..., description="Resident information (privacy enforced)")
+    favoritedAt: datetime = Field(..., description="When the favorite was created")
+
+
+class HouseholdOut(BaseModel):
+    unit: str = Field(..., description="Unit identifier for the household")
+    members: List[ResidentOut] = Field(..., description="Residents in the same unit (privacy enforced)")
+
+
 class ResidentPrivacySettings(BaseModel):
     directoryOptOut: bool = Field(
         ...,
